@@ -1,0 +1,15 @@
+{
+  "permissions": {
+    "allow": [
+      "WebSearch",
+      "WebFetch(domain:www.duranno.com)",
+      "Bash(pip list *)",
+      "Bash(python *)",
+      "Bash(pip install *)",
+      "mcp__claude_ai_Notion__notion-search",
+      "mcp__claude_ai_Notion__notion-fetch",
+      "Bash(schtasks *)",
+      "PowerShell(schtasks *)"
+    ]
+  }
+}

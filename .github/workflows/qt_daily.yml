@@ -22,4 +22,4 @@ jobs:
         env:
           NOTION_TOKEN: ${{ secrets.NOTION_TOKEN }}
           QT_TRANSLATION: "w"
-        run: python qt_to_notion.py
+        run: python qt_notion/qt_to_notion.py

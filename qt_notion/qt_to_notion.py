@@ -23,7 +23,7 @@ from dotenv import load_dotenv
 from scrape_qt import scrape_qt
 
 # 스크립트와 같은 폴더의 .env 파일 로드
-load_dotenv(Path(__file__).parent / ".env")
+load_dotenv(Path(__file__).parent.parent / ".env")
 
 # ── 설정 ────────────────────────────────────────────────────────────────────
 NOTION_TOKEN = os.environ.get("NOTION_TOKEN", "")
