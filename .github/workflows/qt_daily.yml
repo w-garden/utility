@@ -1,0 +1,25 @@
+name: QT Daily Notion Sync
+
+on:
+  schedule:
+    - cron: "0 21 * * *"   # 매일 21:00 UTC = 한국시간 06:00
+  workflow_dispatch:         # 수동 실행 버튼
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Run QT sync
+        env:
+          NOTION_TOKEN: ${{ secrets.NOTION_TOKEN }}
+          QT_TRANSLATION: "w"
+        run: python qt_to_notion.py
