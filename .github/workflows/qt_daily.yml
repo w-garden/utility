@@ -22,4 +22,5 @@ jobs:
         env:
           NOTION_TOKEN: ${{ secrets.NOTION_TOKEN }}
           QT_TRANSLATION: "w"
+          TZ: Asia/Seoul
         run: python qt_notion/qt_to_notion.py
