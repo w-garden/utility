@@ -1,14 +1,46 @@
 import os
 import re
+import sys
 import glob
+import configparser
 from datetime import date, timedelta
 from pptx import Presentation
 from pptx.util import Emu, Pt
 from pptx.dml.color import RGBColor
 from pptx.oxml.ns import qn
 
-VIEWS_DIR = r'C:\Users\shc72\iCloudDrive\01. 수원온누리교회\※ views'
-PPTX_DIR  = r'C:\Users\shc72\iCloudDrive\01. 수원온누리교회\02. 수요성령집회'
+CONFIG_FILENAME = 'config.ini'
+
+
+def load_config():
+    # 실행파일(.exe)이든 .py든 자신과 같은 폴더에서 config.ini를 찾음
+    base_dir = os.path.dirname(sys.executable if getattr(sys, 'frozen', False) else os.path.abspath(__file__))
+    config_path = os.path.join(base_dir, CONFIG_FILENAME)
+
+    if not os.path.exists(config_path):
+        print(f'config.ini 파일이 없습니다. 생성 위치: {config_path}')
+        print('아래 내용으로 config.ini를 만들고 경로를 수정한 뒤 다시 실행하세요.\n')
+        print('[paths]')
+        print('views_dir = C:\\Users\\YourName\\이미지폴더')
+        print('pptx_dir  = C:\\Users\\YourName\\pptx폴더')
+        input('\n엔터를 누르면 종료합니다...')
+        sys.exit(1)
+
+    cfg = configparser.ConfigParser()
+    cfg.read(config_path, encoding='utf-8')
+
+    try:
+        views_dir = cfg['paths']['views_dir'].strip()
+        pptx_dir  = cfg['paths']['pptx_dir'].strip()
+    except KeyError as e:
+        print(f'config.ini에 {e} 항목이 없습니다. 파일을 확인하세요.')
+        input('\n엔터를 누르면 종료합니다...')
+        sys.exit(1)
+
+    return views_dir, pptx_dir
+
+
+VIEWS_DIR, PPTX_DIR = load_config()
 
 
 def find_numbered_images(folder):
