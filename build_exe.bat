@@ -1,4 +1,5 @@
 @echo off
+cd /d "E:\utility"
 echo =============================================
 echo   Build: update_pptx.exe
 echo =============================================
@@ -20,21 +21,15 @@ if errorlevel 1 (
 )
 
 echo [2/3] Building exe...
-pyinstaller --onefile --console --name update_pptx update_pptx.py
+pyinstaller --onefile --windowed --name update_pptx update_pptx.py
 if errorlevel 1 (
     echo [ERROR] PyInstaller failed
     pause
     exit /b 1
 )
 
-echo [3/3] Copying to dist folder...
-if not exist "dist" mkdir "dist"
-copy "config.ini" "dist\config.ini" >nul
-
 echo.
 echo =============================================
-echo   Done! Share these two files in dist\ :
-echo     - update_pptx.exe
-echo     - config.ini
+echo   Done! dist\update_pptx.exe
 echo =============================================
 pause

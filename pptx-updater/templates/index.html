@@ -1,0 +1,304 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>콘티 악보 생성</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      background: #0f1428; color: #fff;
+      min-height: 100vh; display: flex;
+      align-items: center; justify-content: center; padding: 24px;
+    }
+    .card {
+      background: #1a2040; border-radius: 16px;
+      padding: 36px; width: 100%; max-width: 480px;
+      box-shadow: 0 8px 32px rgba(0,0,0,0.4);
+    }
+    h1 { font-size: 20px; font-weight: 700; margin-bottom: 6px; }
+    .subtitle { color: #8898cc; font-size: 14px; margin-bottom: 28px; }
+    label { display: block; font-size: 13px; color: #8898cc; margin-bottom: 6px; margin-top: 16px; }
+    input[type="text"], input[type="password"], input[type="number"] {
+      width: 100%; background: #0f1428; border: 1px solid #2a3560;
+      border-radius: 8px; color: #fff; padding: 10px 14px;
+      font-size: 15px; outline: none;
+    }
+    input:focus { border-color: #5080e0; }
+    .folder-row {
+      display: flex; gap: 8px; align-items: center;
+    }
+    .folder-path {
+      flex: 1; background: #0f1428; border: 1px solid #2a3560;
+      border-radius: 8px; color: #8898cc; padding: 10px 14px;
+      font-size: 13px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    }
+    .folder-path.set { color: #fff; border-color: #2a6040; }
+    .btn-small {
+      background: #2a3560; color: #fff; border: none;
+      border-radius: 8px; padding: 10px 14px; font-size: 13px;
+      font-weight: 600; cursor: pointer; white-space: nowrap;
+      transition: background 0.2s;
+    }
+    .btn-small:hover { background: #3a4880; }
+    .image-count { font-size: 13px; color: #8898cc; margin-top: 6px; min-height: 18px; }
+    .image-count.ok { color: #80e0a0; }
+    .image-count.warn { color: #e0a080; }
+    button.primary {
+      width: 100%; background: #5080e0; color: #fff;
+      border: none; border-radius: 8px; padding: 13px;
+      font-size: 16px; font-weight: 600; cursor: pointer;
+      transition: background 0.2s; margin-top: 20px;
+    }
+    button.primary:hover { background: #3a60c0; }
+    button.primary:disabled { background: #2a3560; cursor: not-allowed; }
+    .result {
+      margin-top: 20px; padding: 16px; border-radius: 8px;
+      font-size: 14px; line-height: 1.6; display: none;
+    }
+    .result.success { background: #1a3020; border: 1px solid #2a6040; }
+    .result.error { background: #301a20; border: 1px solid #602a40; }
+    .result a { color: #80b0ff; font-weight: 600; }
+    .spinner {
+      display: inline-block; width: 16px; height: 16px;
+      border: 2px solid #fff; border-top-color: transparent;
+      border-radius: 50%; animation: spin 0.7s linear infinite;
+      margin-right: 8px; vertical-align: middle;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .no-support { background: #301a20; border: 1px solid #602a40;
+      border-radius: 8px; padding: 16px; font-size: 14px; line-height: 1.6; }
+  </style>
+</head>
+<body>
+<div class="card">
+  <h1>콘티 악보 생성</h1>
+  <p class="subtitle">이미지 폴더 → 수요성령집회 콘티</p>
+
+  <div id="mainForm">
+    <label>비밀번호</label>
+    <input type="password" id="password" placeholder="비밀번호 입력">
+
+    <!-- PC: 폴더 선택 -->
+    <div id="folderSection">
+      <label>이미지 폴더</label>
+      <div class="folder-row">
+        <div class="folder-path" id="folderPath">폴더를 선택해주세요</div>
+        <button class="btn-small" onclick="pickFolder()">폴더 선택</button>
+      </div>
+      <div class="image-count" id="imageCount"></div>
+    </div>
+
+    <!-- 모바일: 파일 직접 선택 -->
+    <div id="fileSection" style="display:none">
+      <label>이미지 파일 선택 (숫자 파일명: 1.jpg, 2.png …)</label>
+      <input type="file" id="fileInput" multiple accept="image/*"
+        style="background:#0f1428;border:1px solid #2a3560;border-radius:8px;color:#fff;padding:10px 14px;font-size:14px;width:100%">
+      <div class="image-count" id="fileCount"></div>
+    </div>
+
+    <label>제목</label>
+    <input type="text" id="title">
+
+    <label>슬라이드 1에 넣을 이미지 수</label>
+    <input type="number" id="split" value="1" min="1">
+
+    <button class="primary" id="generateBtn" onclick="generate()">PPTX 생성</button>
+    <div class="result" id="result"></div>
+  </div>
+</div>
+
+<script>
+  const DB_NAME = 'pptx-tool', STORE = 'handles';
+
+  const hasDirectoryPicker = 'showDirectoryPicker' in window;
+
+  // 모바일/미지원 브라우저 → 파일 직접 선택 UI로 전환
+  if (!hasDirectoryPicker) {
+    document.getElementById('folderSection').style.display = 'none';
+    document.getElementById('fileSection').style.display = 'block';
+  }
+
+  // 다음 수요일 기본 제목
+  function nextWednesday() {
+    const d = new Date();
+    const diff = (3 - d.getDay() + 7) % 7 || 7;
+    d.setDate(d.getDate() + diff);
+    return d.toISOString().slice(0,10).replace(/-/g,'');
+  }
+  document.getElementById('title').value = nextWednesday() + ' 수요성령집회 콘티';
+
+  // IndexedDB
+  function openDB() {
+    return new Promise((res, rej) => {
+      const req = indexedDB.open(DB_NAME, 1);
+      req.onupgradeneeded = e => e.target.result.createObjectStore(STORE);
+      req.onsuccess = e => res(e.target.result);
+      req.onerror = e => rej(e);
+    });
+  }
+  async function saveHandle(key, handle) {
+    const db = await openDB();
+    const tx = db.transaction(STORE, 'readwrite');
+    tx.objectStore(STORE).put(handle, key);
+    return new Promise(res => tx.oncomplete = res);
+  }
+  async function loadHandle(key) {
+    const db = await openDB();
+    return new Promise((res, rej) => {
+      const req = db.transaction(STORE).objectStore(STORE).get(key);
+      req.onsuccess = e => res(e.target.result);
+      req.onerror = rej;
+    });
+  }
+
+  let folderHandle = null;
+
+  async function loadSavedFolder() {
+    try {
+      const h = await loadHandle('imageFolder');
+      if (!h) return;
+      const perm = await h.queryPermission({ mode: 'read' });
+      if (perm === 'granted') {
+        folderHandle = h;
+        await refreshFolderUI();
+      }
+    } catch(e) {}
+  }
+
+  async function pickFolder() {
+    try {
+      const h = await window.showDirectoryPicker({ mode: 'read' });
+      folderHandle = h;
+      await saveHandle('imageFolder', h);
+      await refreshFolderUI();
+    } catch(e) {
+      if (e.name !== 'AbortError') console.error(e);
+    }
+  }
+
+  function naturalSort(a, b) {
+    return a.name.localeCompare(b.name, undefined, { numeric: true, sensitivity: 'base' });
+  }
+
+  async function getNumberedImages(dirHandle) {
+    const images = [];
+    for await (const [name, handle] of dirHandle.entries()) {
+      if (handle.kind !== 'file') continue;
+      const ext = name.split('.').pop().toLowerCase();
+      if (!['jpg','jpeg','png','gif','bmp'].includes(ext)) continue;
+      images.push({ name, handle });
+    }
+    images.sort(naturalSort);
+    return images;
+  }
+
+  async function refreshFolderUI() {
+    if (!folderHandle) return;
+    document.getElementById('folderPath').textContent = folderHandle.name;
+    document.getElementById('folderPath').className = 'folder-path set';
+    const images = await getNumberedImages(folderHandle);
+    const el = document.getElementById('imageCount');
+    if (images.length) {
+      el.textContent = `${images.length}개 이미지 발견: ${images.map(i=>i.name).join(', ')}`;
+      el.className = 'image-count ok';
+      document.getElementById('split').max = Math.max(1, images.length - 1);
+    } else {
+      el.textContent = '숫자 파일명(1.jpg, 2.png …)이 없습니다.';
+      el.className = 'image-count warn';
+    }
+  }
+
+  document.getElementById('fileInput')?.addEventListener('change', () => {
+    const files = getSelectedFiles();
+    const el = document.getElementById('fileCount');
+    if (files.length) {
+      el.textContent = `${files.length}개 이미지 선택됨: ${files.map(f=>f.name).join(', ')}`;
+      el.className = 'image-count ok';
+    } else {
+      el.textContent = '';
+    }
+  });
+
+  function getSelectedFiles() {
+    const input = document.getElementById('fileInput');
+    return [...(input?.files || [])]
+      .filter(f => /\.(jpg|jpeg|png|gif|bmp)$/i.test(f.name))
+      .sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true, sensitivity: 'base' }));
+  }
+
+  async function generate() {
+    const pw = document.getElementById('password').value;
+    const title = document.getElementById('title').value;
+    const split = parseInt(document.getElementById('split').value);
+    const result = document.getElementById('result');
+    const btn = document.getElementById('generateBtn');
+
+    let imageFiles = []; // { name, file() }
+
+    if (hasDirectoryPicker) {
+      if (!folderHandle) { alert('이미지 폴더를 선택해주세요.'); return; }
+      const perm = await folderHandle.requestPermission({ mode: 'read' });
+      if (perm !== 'granted') { alert('폴더 접근 권한이 필요합니다.'); return; }
+      const images = await getNumberedImages(folderHandle);
+      if (!images.length) { alert('숫자 파일명 이미지가 없습니다.'); return; }
+      imageFiles = images.map(i => ({ name: i.name, getFile: () => i.handle.getFile() }));
+    } else {
+      const files = getSelectedFiles();
+      if (!files.length) { alert('이미지 파일을 선택해주세요.'); return; }
+      imageFiles = files.map(f => ({ name: f.name, getFile: () => Promise.resolve(f) }));
+    }
+
+    btn.disabled = true;
+    result.style.display = 'none';
+
+    try {
+      // 1. presigned URL 발급
+      btn.innerHTML = '<span class="spinner"></span>업로드 준비 중...';
+      const urlResp = await fetch('upload-url', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ password: pw, filenames: imageFiles.map(i => i.name) })
+      });
+      const urlData = await urlResp.json();
+      if (!urlResp.ok) throw new Error(urlData.error);
+
+      // 2. S3 업로드
+      const keys = [];
+      for (let i = 0; i < imageFiles.length; i++) {
+        btn.innerHTML = `<span class="spinner"></span>업로드 중... (${i+1}/${imageFiles.length})`;
+        const file = await imageFiles[i].getFile();
+        const { url, key } = urlData.uploads[i];
+        const r = await fetch(url, { method: 'PUT', body: file, headers: { 'Content-Type': file.type } });
+        if (!r.ok) throw new Error(`업로드 실패: ${images[i].name}`);
+        keys.push(key);
+      }
+
+      // 3. PPTX 생성
+      btn.innerHTML = '<span class="spinner"></span>PPTX 생성 중...';
+      const genResp = await fetch('generate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ password: pw, session_id: urlData.session_id, keys, title, split })
+      });
+      const genData = await genResp.json();
+      if (!genResp.ok) throw new Error(genData.error);
+
+      result.className = 'result success';
+      result.innerHTML = `완료!<br><br><a href="${genData.download_url}" download="${genData.title}.pptx">⬇ ${genData.title}.pptx 다운로드</a>`;
+    } catch(e) {
+      result.className = 'result error';
+      result.innerHTML = `❌ ${e.message}`;
+    }
+
+    result.style.display = 'block';
+    btn.disabled = false;
+    btn.textContent = 'PPTX 생성';
+  }
+
+  // 저장된 폴더 자동 로드
+  loadSavedFolder();
+</script>
+</body>
+</html>
