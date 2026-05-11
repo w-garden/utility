@@ -95,8 +95,7 @@ def handle_generate(body: dict) -> dict:
 
     from pptx import Presentation  # noqa: PLC0415
     from pptx.util import Emu, Pt  # noqa: PLC0415
-    from pptx.dml.color import RGBColor  # noqa: PLC0415
-    from pptx.oxml.ns import qn  # noqa: PLC0415
+    from pptx.enum.text import PP_ALIGN, MSO_AUTO_SIZE  # noqa: PLC0415
 
     prs = Presentation()
     blank = prs.slide_layouts[6]
@@ -113,15 +112,21 @@ def handle_generate(body: dict) -> dict:
 
         top_offset = Emu(0)
         if slide_idx == 0:
-            tb_h = Pt(36)
+            tb_h = Pt(32)
             txBox = slide.shapes.add_textbox(Emu(0), Emu(0), slide_w, tb_h)
-            txBox.line.color.rgb = RGBColor(0, 0, 0)
-            txBox.line.width = Pt(1.5)
-            run = txBox.text_frame.paragraphs[0].add_run()
+            tf = txBox.text_frame
+            tf.auto_size = MSO_AUTO_SIZE.SHAPE_TO_FIT_TEXT
+            tf.margin_top = Emu(0)
+            tf.margin_bottom = Emu(0)
+            tf.margin_left = Emu(0)
+            tf.margin_right = Emu(0)
+            run = tf.paragraphs[0].add_run()
+            tf.paragraphs[0].alignment = PP_ALIGN.LEFT
             run.text = title
             run.font.size = Pt(22)
+            run.font.bold = False
             run.font.name = '맑은 고딕'
-            top_offset = tb_h
+            top_offset = tb_h + Pt(2)
 
         n = len(group)
         img_w = slide_w // n
