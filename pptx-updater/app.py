@@ -9,7 +9,8 @@ import boto3
 BUCKET = os.environ["BUCKET_NAME"]
 APP_PASSWORD = os.environ.get("APP_PASSWORD", "")
 LOG_TABLE = os.environ.get("LOG_TABLE", "")
-s3 = boto3.client("s3", region_name="ap-northeast-2")
+s3 = boto3.client("s3", region_name="ap-northeast-2",
+                  endpoint_url="https://s3.ap-northeast-2.amazonaws.com")
 dynamodb = boto3.resource("dynamodb", region_name="ap-northeast-2")
 
 
