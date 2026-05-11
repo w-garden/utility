@@ -3,3 +3,5 @@ __pycache__/
 *.pyc
 .venv/
 qt_log.txt
+.claude/settings.local.json
+.idea/
