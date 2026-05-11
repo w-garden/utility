@@ -34,7 +34,8 @@ Resources:
       Handler: app.lambda_handler
       CodeUri: .
       Policies:
-        - S3FullAccess
+        - S3FullAccessPolicy:
+            BucketName: !Ref AssetsBucket
         - DynamoDBCrudPolicy:
             TableName: !Ref LogTable
       Events:
