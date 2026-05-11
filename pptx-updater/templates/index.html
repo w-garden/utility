@@ -300,7 +300,7 @@
       if (!genResp.ok) throw new Error(genData.error);
 
       result.className = 'result success';
-      result.innerHTML = `완료!<br><br><a href="${genData.download_url}" download="${genData.title}.pptx">⬇ ${genData.title}.pptx 다운로드</a>`;
+      result.innerHTML = `완료!<br><br><a href="${genData.download_url}" download="${genData.title}.pptx" target="_blank">⬇ ${genData.title}.pptx 다운로드</a>`;
     } catch(e) {
       result.className = 'result error';
       result.innerHTML = `❌ ${e.message}`;
