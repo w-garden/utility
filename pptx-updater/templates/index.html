@@ -74,7 +74,7 @@
 <body>
 <div class="card">
   <h1>콘티 악보 생성</h1>
-  <p class="subtitle">이미지 폴더 → 수요성령집회 콘티</p>
+  <p class="subtitle">이미지 폴더 → ppt 파일로 다운</p>
 
   <div id="mainForm">
     <label>비밀번호</label>
@@ -127,7 +127,7 @@
     d.setDate(d.getDate() + diff);
     return d.toISOString().slice(0,10).replace(/-/g,'');
   }
-  document.getElementById('title').value = nextWednesday() + ' 수요성령집회 콘티';
+  document.getElementById('title').placeholder = nextWednesday() + ' 수요성령집회 콘티';
 
   // IndexedDB
   function openDB() {
@@ -230,7 +230,8 @@
 
   async function generate() {
     const pw = document.getElementById('password').value;
-    const title = document.getElementById('title').value;
+    const titleEl = document.getElementById('title');
+    const title = titleEl.value.trim() || titleEl.placeholder;
     const split = parseInt(document.getElementById('split').value);
     const result = document.getElementById('result');
     const btn = document.getElementById('generateBtn');
