@@ -14,3 +14,4 @@ notion-to-youtube/.env.deploy
 notion-to-youtube/.aws-sam/
 pptx-updater/.env.deploy
 pptx-updater/.aws-sam/
+config.ini
