@@ -275,9 +275,17 @@
         try {
           r = await fetch(url, { method: 'PUT', body: await file.arrayBuffer() });
         } catch(fetchErr) {
-          throw new Error(`업로드 실패 (${imageFiles[i].name}): ${fetchErr.message || 'CORS 오류'}`);
+          const msg = `업로드 실패 (${imageFiles[i].name}): ${fetchErr.message || 'CORS 오류'}`;
+          fetch('log-error', { method: 'POST', headers: {'Content-Type':'application/json'},
+            body: JSON.stringify({ step: 's3_upload', error: msg }) });
+          throw new Error(msg);
         }
-        if (!r.ok) throw new Error(`업로드 실패 (${imageFiles[i].name}): HTTP ${r.status}`);
+        if (!r.ok) {
+          const msg = `업로드 실패 (${imageFiles[i].name}): HTTP ${r.status}`;
+          fetch('log-error', { method: 'POST', headers: {'Content-Type':'application/json'},
+            body: JSON.stringify({ step: 's3_upload', error: msg }) });
+          throw new Error(msg);
+        }
         keys.push(key);
       }
 

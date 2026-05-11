@@ -168,6 +168,13 @@ def lambda_handler(event, context):
         body = json.loads(event.get("body") or "{}")
         if path == "/upload-url":
             return handle_upload_url(body)
+        if path == "/log-error":
+            _log(event, "client_error", {
+                "error": body.get("error", ""),
+                "step": body.get("step", ""),
+                "ua": (event.get("headers") or {}).get("User-Agent", ""),
+            })
+            return _json({"ok": True})
         if path == "/generate":
             result = handle_generate(body)
             if result["statusCode"] == 200:

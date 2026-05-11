@@ -65,6 +65,11 @@ Resources:
           Properties:
             Path: /generate
             Method: post
+        LogError:
+          Type: Api
+          Properties:
+            Path: /log-error
+            Method: post
 
   LogTable:
     Type: AWS::DynamoDB::Table
