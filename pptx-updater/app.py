@@ -147,7 +147,12 @@ def handle_generate(body: dict) -> dict:
 
     download_url = s3.generate_presigned_url(
         "get_object",
-        Params={"Bucket": BUCKET, "Key": out_key},
+        Params={
+            "Bucket": BUCKET,
+            "Key": out_key,
+            "ResponseContentDisposition": f'attachment; filename="{title}.pptx"',
+            "ResponseContentType": "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+        },
         ExpiresIn=3600,
     )
 
