@@ -10,3 +10,5 @@ dist/
 *.spec
 notion-to-youtube/thumbnail.png
 notion-to-youtube/.yt_studio_auth.json
+notion-to-youtube/.env.deploy
+notion-to-youtube/.aws-sam/

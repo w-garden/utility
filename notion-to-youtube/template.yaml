@@ -1,0 +1,54 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: Notion → YouTube 예배 찬양 동기화
+
+Globals:
+  Function:
+    Runtime: python3.12
+    Timeout: 300
+    MemorySize: 256
+
+Parameters:
+  GistId:
+    Type: String
+  PlaylistId:
+    Type: String
+    Default: ""
+  AppPassword:
+    Type: String
+    NoEcho: true
+  GithubPat:
+    Type: String
+    NoEcho: true
+  NotionToken:
+    Type: String
+    NoEcho: true
+
+Resources:
+  SyncFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      Handler: app.lambda_handler
+      CodeUri: .
+      Environment:
+        Variables:
+          GIST_ID: !Ref GistId
+          PLAYLIST_ID: !Ref PlaylistId
+          APP_PASSWORD: !Ref AppPassword
+          GITHUB_PAT: !Ref GithubPat
+          NOTION_TOKEN: !Ref NotionToken
+      Events:
+        GetHtml:
+          Type: Api
+          Properties:
+            Path: /
+            Method: get
+        PostSync:
+          Type: Api
+          Properties:
+            Path: /sync
+            Method: post
+
+Outputs:
+  AppUrl:
+    Value: !Sub "https://${ServerlessRestApi}.execute-api.${AWS::Region}.amazonaws.com/Prod/"
