@@ -4,6 +4,8 @@ Description: PPTX 이미지 삽입 웹앱
 
 Globals:
   Api:
+    BinaryMediaTypes:
+      - application/vnd.openxmlformats-officedocument.presentationml.presentation
     Cors:
       AllowMethods: "'GET,POST,OPTIONS'"
       AllowHeaders: "'Content-Type'"
@@ -65,6 +67,11 @@ Resources:
           Properties:
             Path: /generate
             Method: post
+        Download:
+          Type: Api
+          Properties:
+            Path: /download
+            Method: get
         LogError:
           Type: Api
           Properties:

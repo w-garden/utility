@@ -1,3 +1,4 @@
+import base64
 import io
 import json
 import os
@@ -145,18 +146,7 @@ def handle_generate(body: dict) -> dict:
     out_key = f"outputs/{session_id}/{title}.pptx"
     s3.put_object(Bucket=BUCKET, Key=out_key, Body=out.read(), ContentType="application/vnd.openxmlformats-officedocument.presentationml.presentation")
 
-    download_url = s3.generate_presigned_url(
-        "get_object",
-        Params={
-            "Bucket": BUCKET,
-            "Key": out_key,
-            "ResponseContentDisposition": f'attachment; filename="{title}.pptx"',
-            "ResponseContentType": "application/vnd.openxmlformats-officedocument.presentationml.presentation",
-        },
-        ExpiresIn=3600,
-    )
-
-    return _json({"message": "완료!", "download_url": download_url, "title": title})
+    return _json({"message": "완료!", "download_key": out_key, "title": title})
 
 
 def lambda_handler(event, context):
@@ -168,6 +158,23 @@ def lambda_handler(event, context):
         _log(event, "page_view")
         html = (Path(__file__).parent / "templates" / "index.html").read_text()
         return _html(html)
+
+    if method == "GET" and path == "/download":
+        key = (event.get("queryStringParameters") or {}).get("key", "")
+        if not key.startswith("outputs/"):
+            return _json({"error": "Invalid key"}, 400)
+        obj = s3.get_object(Bucket=BUCKET, Key=key)
+        data = obj["Body"].read()
+        filename = key.split("/")[-1]
+        return {
+            "statusCode": 200,
+            "headers": {
+                "Content-Type": "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+                "Content-Disposition": f'attachment; filename="{filename}"',
+            },
+            "body": base64.b64encode(data).decode(),
+            "isBase64Encoded": True,
+        }
 
     if method == "POST":
         body = json.loads(event.get("body") or "{}")
