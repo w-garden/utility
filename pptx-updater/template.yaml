@@ -28,6 +28,12 @@ Resources:
   AssetsBucket:
     Type: AWS::S3::Bucket
     Properties:
+      CorsConfiguration:
+        CorsRules:
+          - AllowedHeaders: ['*']
+            AllowedMethods: [PUT, GET]
+            AllowedOrigins: ['*']
+            MaxAge: 300
       LifecycleConfiguration:
         Rules:
           - Status: Enabled
