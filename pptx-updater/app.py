@@ -73,7 +73,7 @@ def handle_upload_url(body: dict) -> dict:
         key = f"uploads/{session_id}/{i+1}.{ext}"
         url = s3.generate_presigned_url(
             "put_object",
-            Params={"Bucket": BUCKET, "Key": key, "ContentType": "image/*"},
+            Params={"Bucket": BUCKET, "Key": key},
             ExpiresIn=300,
         )
         urls.append({"filename": name, "key": key, "url": url})
