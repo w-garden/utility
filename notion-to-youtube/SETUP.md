@@ -88,7 +88,9 @@ rm ~/Downloads/client_secret_*.json
 
 ---
 
-## Step 5. PAT을 macOS Keychain에 저장
+## Step 5. PAT을 자격증명 저장소에 저장
+
+**macOS (Keychain)**
 
 ```bash
 security add-generic-password -U \
@@ -104,11 +106,37 @@ security find-generic-password -s "github-pat-gist" -a "$USER" -w | head -c 12
 # github_pat_ 로 시작하면 OK
 ```
 
+**Windows (Credential Manager)**
+
+```powershell
+# PowerShell에서
+python -m keyring set github-pat-gist $env:USERNAME
+# 프롬프트가 뜨면 PAT 붙여넣기
+```
+
+확인:
+
+```powershell
+python -m keyring get github-pat-gist $env:USERNAME | Out-String | Select-String "github_pat_"
+```
+
+**WSL2 (환경변수 — 세션 한정)**
+
+```bash
+export GITHUB_PAT="여기에_PAT_붙여넣기"
+# ~/.bashrc 또는 ~/.zshrc에 추가하면 영구 적용 (단, 평문 주의)
+```
+
 ---
 
-## Step 6. Gist ID 기록
+## Step 6. Gist ID를 config.ini에 저장
 
-Step 2에서 복사한 Gist ID를 코드 실행 시 환경변수 또는 설정 파일로 전달한다. 추후 코드 작성 시 처리.
+Step 2에서 복사한 Gist ID를 `notion-to-youtube/config.ini`에 기록한다.
+
+```ini
+[github]
+gist_id = abc123def456   ← 여기에 붙여넣기
+```
 
 ---
 

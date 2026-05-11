@@ -5,3 +5,8 @@ __pycache__/
 qt_log.txt
 .claude/settings.local.json
 .idea/
+build/
+dist/
+*.spec
+notion-to-youtube/thumbnail.png
+notion-to-youtube/.yt_studio_auth.json
