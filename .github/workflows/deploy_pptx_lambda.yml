@@ -32,7 +32,13 @@ jobs:
 
       - name: Deploy
         working-directory: pptx-updater
+        env:
+          APP_PASSWORD: ${{ secrets.PPTX_APP_PASSWORD }}
         run: |
+          PARAM_OVERRIDES=""
+          if [[ -n "$APP_PASSWORD" ]]; then
+            PARAM_OVERRIDES="--parameter-overrides AppPassword=$APP_PASSWORD"
+          fi
           sam deploy \
             --stack-name pptx-updater \
             --s3-bucket aws-sam-cli-managed-default-samclisourcebucket-h7hjf7rlxmjl \
@@ -41,4 +47,4 @@ jobs:
             --capabilities CAPABILITY_IAM \
             --no-confirm-changeset \
             --no-fail-on-empty-changeset \
-            --parameter-overrides AppPassword="${{ secrets.PPTX_APP_PASSWORD || '' }}"
+            $PARAM_OVERRIDES
