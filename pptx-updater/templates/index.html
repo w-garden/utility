@@ -271,8 +271,13 @@
         btn.innerHTML = `<span class="spinner"></span>업로드 중... (${i+1}/${imageFiles.length})`;
         const file = await imageFiles[i].getFile();
         const { url, key } = urlData.uploads[i];
-        const r = await fetch(url, { method: 'PUT', body: file });
-        if (!r.ok) throw new Error(`업로드 실패: ${imageFiles[i].name}`);
+        let r;
+        try {
+          r = await fetch(url, { method: 'PUT', body: await file.arrayBuffer() });
+        } catch(fetchErr) {
+          throw new Error(`업로드 실패 (${imageFiles[i].name}): ${fetchErr.message || 'CORS 오류'}`);
+        }
+        if (!r.ok) throw new Error(`업로드 실패 (${imageFiles[i].name}): HTTP ${r.status}`);
         keys.push(key);
       }
 
