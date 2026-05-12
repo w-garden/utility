@@ -1,9 +1,9 @@
-import base64
 import io
 import json
 import os
 import uuid
 from datetime import date, datetime, timedelta, timezone
+from urllib.parse import quote
 
 import boto3
 
@@ -163,17 +163,21 @@ def lambda_handler(event, context):
         key = (event.get("queryStringParameters") or {}).get("key", "")
         if not key.startswith("outputs/"):
             return _json({"error": "Invalid key"}, 400)
-        obj = s3.get_object(Bucket=BUCKET, Key=key)
-        data = obj["Body"].read()
         filename = key.split("/")[-1]
-        return {
-            "statusCode": 200,
-            "headers": {
-                "Content-Type": "application/vnd.openxmlformats-officedocument.presentationml.presentation",
-                "Content-Disposition": f'attachment; filename="{filename}"',
+        url = s3.generate_presigned_url(
+            "get_object",
+            Params={
+                "Bucket": BUCKET,
+                "Key": key,
+                "ResponseContentDisposition": f"attachment; filename*=UTF-8''{quote(filename)}",
+                "ResponseContentType": "application/vnd.openxmlformats-officedocument.presentationml.presentation",
             },
-            "body": base64.b64encode(data).decode(),
-            "isBase64Encoded": True,
+            ExpiresIn=300,
+        )
+        return {
+            "statusCode": 302,
+            "headers": {"Location": url},
+            "body": "",
         }
 
     if method == "POST":

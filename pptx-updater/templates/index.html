@@ -263,7 +263,7 @@
         body: JSON.stringify({ password: pw, filenames: imageFiles.map(i => i.name) })
       });
       const urlData = await urlResp.json();
-      if (!urlResp.ok) throw new Error(urlData.error);
+      if (!urlResp.ok) throw new Error(urlData.error || `서버 오류 (${urlResp.status})`);
 
       // 2. S3 업로드
       const keys = [];
@@ -297,13 +297,13 @@
         body: JSON.stringify({ password: pw, session_id: urlData.session_id, keys, title, split })
       });
       const genData = await genResp.json();
-      if (!genResp.ok) throw new Error(genData.error);
+      if (!genResp.ok) throw new Error(genData.error || `생성 오류 (${genResp.status})`);
 
       result.className = 'result success';
       result.innerHTML = `완료!<br><br><a href="download?key=${encodeURIComponent(genData.download_key)}" download="${genData.title}.pptx">⬇ ${genData.title}.pptx 다운로드</a>`;
     } catch(e) {
       result.className = 'result error';
-      result.innerHTML = `❌ ${e.message}`;
+      result.innerHTML = `❌ ${e.message || '알 수 없는 오류가 발생했습니다.'}`;
     }
 
     result.style.display = 'block';
