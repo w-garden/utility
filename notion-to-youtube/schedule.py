@@ -67,16 +67,38 @@ def _get_block_children(block_id: str) -> list:
     return blocks
 
 
+_TEXT_BLOCK_TYPES = {
+    "paragraph", "numbered_list_item", "bulleted_list_item",
+    "to_do", "toggle", "quote", "callout",
+}
+
+
 def _extract_youtube_urls(blocks: list) -> list[str]:
     urls = []
     for block in blocks:
-        if block.get("type") == "video":
+        btype = block.get("type", "")
+
+        if btype == "video":
             video = block.get("video", {})
             url = (video.get("external") or {}).get("url", "")
             if not url:
                 url = (video.get("file") or {}).get("url", "")
             if "youtu" in url:
                 urls.append(url)
+
+        elif btype in _TEXT_BLOCK_TYPES:
+            rich_texts = (block.get(btype) or {}).get("rich_text", [])
+            for rt in rich_texts:
+                # href 링크
+                href = (rt.get("href") or "")
+                if "youtu" in href:
+                    urls.append(href)
+                    continue
+                # 평문 텍스트에 URL이 직접 적힌 경우
+                text = (rt.get("plain_text") or "").strip()
+                if "youtu" in text and text.startswith("http"):
+                    urls.append(text)
+
         if block.get("has_children"):
             urls.extend(_extract_youtube_urls(_get_block_children(block["id"])))
     return urls
