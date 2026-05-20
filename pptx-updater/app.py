@@ -61,6 +61,24 @@ def _next_wednesday() -> str:
     return (today + timedelta(days=days)).strftime("%Y%m%d")
 
 
+_PPTX_SUPPORTED_FORMATS = {"BMP", "GIF", "JPEG", "PNG", "TIFF", "WMF"}
+
+
+def _normalize_image(raw: bytes) -> io.BytesIO:
+    """python-pptx가 지원하지 않는 포맷(MPO 등)을 JPEG로 변환."""
+    from PIL import Image  # noqa: PLC0415
+
+    img = Image.open(io.BytesIO(raw))
+    fmt = (img.format or "").upper()
+    if fmt in _PPTX_SUPPORTED_FORMATS:
+        return io.BytesIO(raw)
+
+    buf = io.BytesIO()
+    img.convert("RGB").save(buf, format="JPEG", quality=92)
+    buf.seek(0)
+    return buf
+
+
 def _parse_pages(pattern: str, total: int) -> list:
     """페이지 구성 패턴 파싱. update_pptx.parse_pages와 동일."""
     pattern = (pattern or "").strip()
@@ -227,7 +245,7 @@ def handle_generate(body: dict) -> dict:
 
         for i, key in enumerate(group):
             obj = s3.get_object(Bucket=BUCKET, Key=key)
-            img_data = io.BytesIO(obj["Body"].read())
+            img_data = _normalize_image(obj["Body"].read())
             slide.shapes.add_picture(img_data, img_w * i, top_offset, img_w, img_h)
 
     out = io.BytesIO()

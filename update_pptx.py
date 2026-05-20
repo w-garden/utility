@@ -1,4 +1,5 @@
 import glob
+import io
 import os
 import re
 import sys
@@ -66,6 +67,24 @@ def next_wednesday() -> str:
     today = date.today()
     days = (2 - today.weekday()) % 7 or 7
     return (today + timedelta(days=days)).strftime('%Y%m%d')
+
+
+_PPTX_SUPPORTED_FORMATS = {'BMP', 'GIF', 'JPEG', 'PNG', 'TIFF', 'WMF'}
+
+
+def _normalize_image(raw: bytes) -> io.BytesIO:
+    """python-pptx가 지원하지 않는 포맷(MPO 등)을 JPEG로 변환."""
+    from PIL import Image  # noqa: PLC0415
+
+    img = Image.open(io.BytesIO(raw))
+    fmt = (img.format or '').upper()
+    if fmt in _PPTX_SUPPORTED_FORMATS:
+        return io.BytesIO(raw)
+
+    buf = io.BytesIO()
+    img.convert('RGB').save(buf, format='JPEG', quality=92)
+    buf.seek(0)
+    return buf
 
 
 def parse_pages(pattern: str, total: int) -> list[int]:
@@ -230,7 +249,9 @@ def run_update(views_dir: str, pptx_dir: str, title: str, pattern: str) -> str:
         img_w = slide_w // n
         img_h = slide_h - top_offset
         for i, img_path in enumerate(group):
-            slide.shapes.add_picture(img_path, img_w * i, top_offset, img_w, img_h)
+            with open(img_path, 'rb') as f:
+                img_data = _normalize_image(f.read())
+            slide.shapes.add_picture(img_data, img_w * i, top_offset, img_w, img_h)
 
         slide_num += 1
 
