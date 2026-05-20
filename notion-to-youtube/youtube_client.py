@@ -87,10 +87,5 @@ def sync_playlist(gist_id: str, playlist_id: str | None, title: str, urls: list[
     print(f"동기화 완료: '{title}' — {added}/{len(urls)}곡")
     print(f"  https://www.youtube.com/playlist?list={playlist_id}")
 
-    # 썸네일 생성 후 YouTube Studio로 자동 업로드
-    from thumbnail import generate, THUMBNAIL_PATH  # noqa: PLC0415
-    from studio_upload import upload as studio_upload  # noqa: PLC0415
-    thumb_path = generate(title)
-    studio_upload(playlist_id, thumb_path)
 
     return playlist_id

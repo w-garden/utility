@@ -1,0 +1,12 @@
+main.py
+deploy.sh
+config.ini
+samconfig.toml
+thumbnail.py
+studio_upload.py
+thumbnail.png
+.env.deploy
+.yt_studio_auth.json
+SETUP.md
+__pycache__
+*.pyc

@@ -1,0 +1,46 @@
+name: Deploy pptx-updater Lambda
+
+on:
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ap-northeast-2
+
+      - name: Install SAM CLI
+        run: pip install aws-sam-cli
+
+      - name: Build
+        working-directory: pptx-updater
+        run: sam build
+
+      - name: Deploy
+        working-directory: pptx-updater
+        env:
+          APP_PASSWORD: ${{ secrets.PPTX_APP_PASSWORD }}
+        run: |
+          PARAM_OVERRIDES=""
+          if [[ -n "$APP_PASSWORD" ]]; then
+            PARAM_OVERRIDES="--parameter-overrides AppPassword=$APP_PASSWORD"
+          fi
+          sam deploy \
+            --stack-name pptx-updater \
+            --s3-bucket aws-sam-cli-managed-default-samclisourcebucket-h7hjf7rlxmjl \
+            --s3-prefix pptx-updater \
+            --region ap-northeast-2 \
+            --capabilities CAPABILITY_IAM \
+            --no-confirm-changeset \
+            --no-fail-on-empty-changeset \
+            $PARAM_OVERRIDES

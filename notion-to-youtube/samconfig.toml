@@ -1,0 +1,11 @@
+version = 0.1
+[default]
+[default.deploy]
+[default.deploy.parameters]
+stack_name = "notion-youtube-sync"
+s3_bucket = "aws-sam-cli-managed-default-samclisourcebucket-h7hjf7rlxmjl"
+s3_prefix = "notion-youtube-sync"
+region = "ap-northeast-2"
+confirm_changeset = true
+capabilities = "CAPABILITY_IAM"
+parameter_overrides = "GistId=\"e6d7c030aaaa3c6098f6ef1787bfe4c3\" PlaylistId=\"PL6TgjrcGl62fCnYllJ8zyFLrCuv7bu3oM\""

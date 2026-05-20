@@ -1,0 +1,93 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: PPTX 이미지 삽입 웹앱
+
+Globals:
+  Api:
+    Cors:
+      AllowMethods: "'GET,POST,OPTIONS'"
+      AllowHeaders: "'Content-Type'"
+      AllowOrigin: "'*'"
+  Function:
+    Runtime: python3.12
+    Timeout: 60
+    MemorySize: 512
+    Environment:
+      Variables:
+        BUCKET_NAME: !Ref AssetsBucket
+        APP_PASSWORD: !Ref AppPassword
+        LOG_TABLE: !Ref LogTable
+
+Parameters:
+  AppPassword:
+    Type: String
+    NoEcho: true
+    Default: ""
+
+Resources:
+  AssetsBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      CorsConfiguration:
+        CorsRules:
+          - AllowedHeaders: ['*']
+            AllowedMethods: [PUT, GET]
+            AllowedOrigins: ['*']
+            MaxAge: 300
+      LifecycleConfiguration:
+        Rules:
+          - Status: Enabled
+            ExpirationInDays: 1  # 업로드된 파일 1일 후 자동 삭제
+
+  PptxFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      Handler: app.lambda_handler
+      CodeUri: .
+      Policies:
+        - S3FullAccessPolicy:
+            BucketName: !Ref AssetsBucket
+        - DynamoDBCrudPolicy:
+            TableName: !Ref LogTable
+      Events:
+        GetHtml:
+          Type: Api
+          Properties:
+            Path: /
+            Method: get
+        GetUploadUrl:
+          Type: Api
+          Properties:
+            Path: /upload-url
+            Method: post
+        Generate:
+          Type: Api
+          Properties:
+            Path: /generate
+            Method: post
+        Download:
+          Type: Api
+          Properties:
+            Path: /download
+            Method: get
+        LogError:
+          Type: Api
+          Properties:
+            Path: /log-error
+            Method: post
+
+  LogTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: pptx-usage-log
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: id
+          AttributeType: S
+      KeySchema:
+        - AttributeName: id
+          KeyType: HASH
+
+Outputs:
+  AppUrl:
+    Value: !Sub "https://${ServerlessRestApi}.execute-api.${AWS::Region}.amazonaws.com/Prod/"
