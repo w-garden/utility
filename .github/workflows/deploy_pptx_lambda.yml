@@ -1,11 +1,7 @@
 name: Deploy pptx-updater Lambda
 
 on:
-  push:
-    branches: [main, feature/webapp]
-    paths:
-      - 'pptx-updater/**'
-      - '.github/workflows/deploy_pptx_lambda.yml'
+  workflow_dispatch:
 
 jobs:
   deploy:

@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>콘티 악보 생성</title>
+  <title>Setlist</title>
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
     body {
@@ -17,8 +17,7 @@
       padding: 36px; width: 100%; max-width: 480px;
       box-shadow: 0 8px 32px rgba(0,0,0,0.4);
     }
-    h1 { font-size: 20px; font-weight: 700; margin-bottom: 6px; }
-    .subtitle { color: #8898cc; font-size: 14px; margin-bottom: 28px; }
+    h1 { font-size: 20px; font-weight: 700; margin-bottom: 20px; }
     label { display: block; font-size: 13px; color: #8898cc; margin-bottom: 6px; margin-top: 16px; }
     input[type="text"], input[type="password"], input[type="number"] {
       width: 100%; background: #0f1428; border: 1px solid #2a3560;
@@ -69,14 +68,111 @@
     @keyframes spin { to { transform: rotate(360deg); } }
     .no-support { background: #301a20; border: 1px solid #602a40;
       border-radius: 8px; padding: 16px; font-size: 14px; line-height: 1.6; }
+
+    .label-hint { color: #5080e0; font-size: 12px; font-weight: 400; margin-left: 4px; }
+
+    .help {
+      margin: 4px 0 8px;
+      border-radius: 10px;
+      overflow: hidden;
+      background: #162038;
+    }
+    .help-toggle {
+      width: 100%;
+      background: #222b4a;
+      color: #fff;
+      border: none;
+      border-radius: 10px;
+      padding: 12px 14px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      cursor: pointer;
+      font-size: 14px;
+      font-weight: 600;
+      transition: background 0.2s, border-radius 0.3s;
+    }
+    .help-toggle:hover, .help-toggle:active { background: #2b375c; }
+    .help-toggle .chev {
+      color: #5080e0;
+      display: inline-block;
+      transition: transform 0.3s ease;
+      font-size: 12px;
+    }
+    .help.open .help-toggle { border-radius: 10px 10px 0 0; }
+    .help.open .help-toggle .chev { transform: rotate(90deg); }
+    .help-toggle .hint { margin-left: auto; color: #6f86c2; font-size: 12px; font-weight: 400; }
+
+    .help-body {
+      max-height: 0;
+      overflow: hidden;
+      transition: max-height 0.4s ease, padding 0.3s ease;
+      padding: 0 16px;
+    }
+    .help.open .help-body { max-height: 600px; padding: 12px 16px 14px; }
+
+    .help-item {
+      display: flex;
+      gap: 12px;
+      padding: 4px 0;
+      font-size: 13px;
+      line-height: 1.5;
+      color: #d0d8f0;
+      opacity: 0;
+      transform: translateY(-4px);
+      transition: opacity 0.3s ease, transform 0.3s ease;
+    }
+    .help.open .help-item { opacity: 1; transform: translateY(0); }
+    .help.open .help-item:nth-child(1) { transition-delay: 0.05s; }
+    .help.open .help-item:nth-child(2) { transition-delay: 0.10s; }
+    .help.open .help-item:nth-child(3) { transition-delay: 0.15s; }
+    .help.open .help-item:nth-child(4) { transition-delay: 0.20s; }
+    .help.open .help-item:nth-child(5) { transition-delay: 0.25s; }
+    .help.open .help-item:nth-child(6) { transition-delay: 0.30s; }
+    .help.open .help-item:nth-child(7) { transition-delay: 0.35s; }
+    .help.open .help-item:nth-child(8) { transition-delay: 0.40s; }
+    .help.open .help-item:nth-child(9) { transition-delay: 0.45s; }
+
+    .help-item .mark {
+      flex-shrink: 0;
+      width: 18px;
+      text-align: center;
+      font-weight: 700;
+      color: #5080e0;
+    }
+    .help-item .mark.dim { color: #6f86c2; }
+    .help-item code {
+      background: #0f1428;
+      color: #80b0ff;
+      padding: 1px 6px;
+      border-radius: 4px;
+      font-size: 12px;
+    }
   </style>
 </head>
 <body>
 <div class="card">
-  <h1>콘티 악보 생성</h1>
-  <p class="subtitle">이미지 폴더 → ppt 파일로 다운</p>
+  <h1>Setlist</h1>
 
-  <div id="mainForm">
+  <div class="help" id="helpPanel">
+    <button class="help-toggle" type="button" onclick="toggleHelp()">
+      <span class="chev">▸</span>
+      <span>사용법</span>
+      <span class="hint" id="helpHint">탭하세요</span>
+    </button>
+    <div class="help-body">
+      <div class="help-item"><span class="mark">1</span><span>이미지 폴더에 <code>1.jpg</code>, <code>2.jpg</code> 순서로 악보 이미지 저장</span></div>
+      <div class="help-item"><span class="mark">2</span><span>이미지 폴더(또는 파일들) 선택</span></div>
+      <div class="help-item"><span class="mark">3</span><span>제목을 <code>YYYYMMDD 라벨</code> 형식으로 (예: <code>20260520 수요성령집회</code>)</span></div>
+      <div class="help-item"><span class="mark">4</span><span>페이지 구성 입력 — 아래 예시 참고</span></div>
+      <div class="help-item"><span class="mark dim">•</span><span><code>2</code> → 2장씩 모두 채움</span></div>
+      <div class="help-item"><span class="mark dim">•</span><span><code>2,2,3</code> → 3슬라이드 (2장, 2장, 3장)</span></div>
+      <div class="help-item"><span class="mark dim">•</span><span><code>2x3</code> → 2장씩 3슬라이드</span></div>
+      <div class="help-item"><span class="mark">5</span><span>생성 클릭</span></div>
+    </div>
+  </div>
+
+  <form id="mainForm" onsubmit="event.preventDefault(); generate();">
     <label>비밀번호</label>
     <input type="password" id="password" placeholder="비밀번호 입력">
 
@@ -101,12 +197,12 @@
     <label>제목</label>
     <input type="text" id="title">
 
-    <label>슬라이드 1에 넣을 이미지 수</label>
-    <input type="number" id="split" value="1" min="1">
+    <label>페이지 구성<span class="label-hint">(예: 2 / 2,2,3 / 2x3)</span></label>
+    <input type="text" id="pattern" value="2" placeholder="2" autocomplete="off">
 
-    <button class="primary" id="generateBtn" onclick="generate()">PPTX 생성</button>
+    <button type="submit" class="primary" id="generateBtn">생성</button>
     <div class="result" id="result"></div>
-  </div>
+  </form>
 </div>
 
 <script>
@@ -203,7 +299,6 @@
     if (images.length) {
       el.textContent = `${images.length}개 이미지 발견: ${images.map(i=>i.name).join(', ')}`;
       el.className = 'image-count ok';
-      document.getElementById('split').max = Math.max(1, images.length - 1);
     } else {
       el.textContent = '이미지 파일이 없습니다.';
       el.className = 'image-count warn';
@@ -232,7 +327,7 @@
     const pw = document.getElementById('password').value;
     const titleEl = document.getElementById('title');
     const title = titleEl.value.trim() || titleEl.placeholder;
-    const split = parseInt(document.getElementById('split').value);
+    const pattern = document.getElementById('pattern').value.trim() || '2';
     const result = document.getElementById('result');
     const btn = document.getElementById('generateBtn');
 
@@ -294,7 +389,7 @@
       const genResp = await fetch('generate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ password: pw, session_id: urlData.session_id, keys, title, split })
+        body: JSON.stringify({ password: pw, session_id: urlData.session_id, keys, title, pattern })
       });
       const genData = await genResp.json();
       if (!genResp.ok) throw new Error(genData.error || `생성 오류 (${genResp.status})`);
@@ -308,7 +403,14 @@
 
     result.style.display = 'block';
     btn.disabled = false;
-    btn.textContent = 'PPTX 생성';
+    btn.textContent = '생성';
+  }
+
+  function toggleHelp() {
+    const panel = document.getElementById('helpPanel');
+    const hint = document.getElementById('helpHint');
+    const open = panel.classList.toggle('open');
+    hint.textContent = open ? '닫기' : '탭하세요';
   }
 
   // 저장된 폴더 자동 로드

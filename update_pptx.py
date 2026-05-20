@@ -1,5 +1,6 @@
 import glob
 import os
+import re
 import sys
 import configparser
 import tkinter as tk
@@ -9,7 +10,8 @@ from datetime import date, timedelta
 from pptx import Presentation
 from pptx.util import Emu, Pt
 from pptx.dml.color import RGBColor
-from pptx.enum.text import PP_ALIGN, MSO_AUTO_SIZE
+from pptx.enum.shapes import MSO_SHAPE
+from pptx.enum.text import PP_ALIGN, MSO_AUTO_SIZE, MSO_ANCHOR
 from pptx.oxml.ns import qn
 
 CONFIG_FILENAME = 'config.ini'
@@ -66,6 +68,49 @@ def next_wednesday() -> str:
     return (today + timedelta(days=days)).strftime('%Y%m%d')
 
 
+def parse_pages(pattern: str, total: int) -> list[int]:
+    """
+    페이지 구성 패턴 파싱.
+      "2"        → [2, 2, ...] (전체 이미지를 2장씩 나눠 담음)
+      "2,2,3"    → [2, 2, 3]
+      "2x3"      → [2, 2, 2]
+      "2x2,3x1"  → [2, 2, 3]
+    """
+    pattern = (pattern or '').strip()
+    if not pattern:
+        return [total] if total else []
+
+    chunks = [c.strip() for c in re.split(r'[,+]', pattern) if c.strip()]
+    is_single_number = len(chunks) == 1 and chunks[0].isdigit()
+
+    result: list[int] = []
+    for chunk in chunks:
+        m = re.match(r'^(\d+)\s*[x*X]\s*(\d+)$', chunk)
+        if m:
+            n, rep = int(m.group(1)), int(m.group(2))
+            if n <= 0 or rep <= 0:
+                raise ValueError(f'잘못된 패턴: {chunk!r}')
+            result.extend([n] * rep)
+        elif chunk.isdigit():
+            n = int(chunk)
+            if n <= 0:
+                raise ValueError(f'잘못된 패턴: {chunk!r}')
+            result.append(n)
+        else:
+            raise ValueError(f'잘못된 패턴: {chunk!r}')
+
+    if is_single_number and result:
+        per = result[0]
+        result = []
+        remaining = total
+        while remaining > 0:
+            take = min(per, remaining)
+            result.append(take)
+            remaining -= take
+
+    return result
+
+
 def find_or_create_pptx(folder: str, title: str) -> tuple[str, str | None]:
     """(저장할 경로, 기존 파일 경로 or None) 반환. 항상 {title}.pptx로 저장."""
     os.makedirs(folder, exist_ok=True)
@@ -80,14 +125,25 @@ def find_or_create_pptx(folder: str, title: str) -> tuple[str, str | None]:
     return save_path, existing
 
 
-def run_update(views_dir: str, pptx_dir: str, title: str, split: int) -> str:
+def run_update(views_dir: str, pptx_dir: str, title: str, pattern: str) -> str:
     images = find_numbered_images(views_dir)
     if not images:
         raise ValueError(f'이미지가 없습니다.\n폴더: {views_dir}')
 
     total = len(images)
-    split = max(1, min(split, total - 1)) if total > 1 else total
-    groups = [images[:split], images[split:]] if total > 1 else [images, []]
+    sizes = parse_pages(pattern, total)
+    if not sizes:
+        raise ValueError('페이지 구성이 비어 있습니다.')
+
+    groups: list[list[str]] = []
+    idx = 0
+    for size in sizes:
+        if idx >= total:
+            break
+        groups.append(images[idx:idx + size])
+        idx += size
+    if idx < total:
+        groups.append(images[idx:])
 
     save_path, existing = find_or_create_pptx(pptx_dir, title)
     prs = Presentation(existing or save_path)
@@ -100,10 +156,11 @@ def run_update(views_dir: str, pptx_dir: str, title: str, split: int) -> str:
     while len(prs.slides) < needed:
         prs.slides.add_slide(blank)
     while len(prs.slides) > needed:
-        idx = len(prs.slides) - 1
-        rId = prs.slides._sldIdLst[idx].get(qn('r:id'))
-        prs.slides._sldIdLst.remove(prs.slides._sldIdLst[idx])
-        del prs.part.related_parts[rId]
+        sld_lst = list(prs.slides._sldIdLst)
+        last = sld_lst[-1]
+        rId = last.get(qn('r:id'))
+        prs.part.drop_rel(rId)
+        prs.slides._sldIdLst.remove(last)
 
     slide_num = 0
     for group in groups:
@@ -116,21 +173,58 @@ def run_update(views_dir: str, pptx_dir: str, title: str, split: int) -> str:
 
         top_offset = Emu(0)
         if slide_num == 0:
-            tb_h = Pt(32)
-            txBox = slide.shapes.add_textbox(Emu(0), Emu(0), slide_w, tb_h)
-            tf = txBox.text_frame
-            tf.auto_size = MSO_AUTO_SIZE.SHAPE_TO_FIT_TEXT
+            m = re.match(r'^(\d{4})(\d{2})(\d{2})\s+(.+?)(?:\s+콘티)?$', title)
+            if m:
+                formatted_date = f'{m.group(1)}.{int(m.group(2))}.{int(m.group(3))}'
+                label = m.group(4)
+            else:
+                formatted_date = ''
+                label = title
+
+            NAVY = RGBColor(0x1A, 0x2A, 0x4A)
+            WHITE = RGBColor(0xFF, 0xFF, 0xFF)
+            box_h = Pt(32)
+            label_w = Pt(28 + len(label) * 18)
+
+            box = slide.shapes.add_shape(MSO_SHAPE.RECTANGLE, Emu(0), Emu(0), label_w, box_h)
+            box.fill.solid()
+            box.fill.fore_color.rgb = NAVY
+            box.line.fill.background()
+            tf = box.text_frame
             tf.margin_top = Emu(0)
             tf.margin_bottom = Emu(0)
-            tf.margin_left = Emu(0)
-            tf.margin_right = Emu(0)
-            run = tf.paragraphs[0].add_run()
-            tf.paragraphs[0].alignment = PP_ALIGN.LEFT
-            run.text = title
-            run.font.size = Pt(22)
-            run.font.bold = False
+            tf.margin_left = Pt(4)
+            tf.margin_right = Pt(4)
+            tf.word_wrap = False
+            tf.vertical_anchor = MSO_ANCHOR.MIDDLE
+            p = tf.paragraphs[0]
+            p.alignment = PP_ALIGN.CENTER
+            run = p.add_run()
+            run.text = label
+            run.font.size = Pt(18)
+            run.font.bold = True
             run.font.name = '맑은 고딕'
-            top_offset = tb_h + Pt(2)
+            run.font.color.rgb = WHITE
+
+            if formatted_date:
+                date_box = slide.shapes.add_textbox(label_w + Pt(10), Emu(0), Pt(180), box_h)
+                dtf = date_box.text_frame
+                dtf.margin_top = Emu(0)
+                dtf.margin_bottom = Emu(0)
+                dtf.margin_left = Emu(0)
+                dtf.margin_right = Emu(0)
+                dtf.word_wrap = False
+                dtf.vertical_anchor = MSO_ANCHOR.MIDDLE
+                dp = dtf.paragraphs[0]
+                dp.alignment = PP_ALIGN.LEFT
+                drun = dp.add_run()
+                drun.text = formatted_date
+                drun.font.size = Pt(18)
+                drun.font.bold = True
+                drun.font.name = '맑은 고딕'
+                drun.font.color.rgb = NAVY
+
+            top_offset = box_h + Pt(4)
 
         n = len(group)
         img_w = slide_w // n
@@ -144,10 +238,115 @@ def run_update(views_dir: str, pptx_dir: str, title: str, split: int) -> str:
     return f'({total}장 → {needed}슬라이드) {os.path.basename(save_path)}', save_path
 
 
+class CollapsiblePanel(tk.Frame):
+    """클릭하면 부드럽게 펼쳐지는 토글 패널. 펼침 시 항목이 한 줄씩 슬라이드 인."""
+
+    HEADER_BG = '#222b4a'
+    HEADER_HOVER = '#2b375c'
+    BODY_BG = '#162038'
+    ACCENT_DIM = '#6f86c2'
+
+    def __init__(self, parent, title: str, lines: list[tuple[str, str]]):
+        super().__init__(parent, bg=CARD_BG)
+        self.expanded = False
+        self._title = title
+        self._lines = lines
+        self._anim_after = None
+
+        self.header = tk.Frame(self, bg=self.HEADER_BG, cursor='hand2', height=30)
+        self.header.pack(fill='x')
+        self.header.pack_propagate(False)
+
+        inner = tk.Frame(self.header, bg=self.HEADER_BG, cursor='hand2')
+        inner.place(relx=0, rely=0.5, anchor='w', x=10)
+
+        self.chevron = tk.Label(inner, text='▸', bg=self.HEADER_BG, fg=ACCENT,
+                                font=(FONT, 11, 'bold'), cursor='hand2')
+        self.chevron.pack(side='left', padx=(0, 8))
+
+        self.title_label = tk.Label(inner, text=title, bg=self.HEADER_BG, fg=FG,
+                                     font=(FONT, 10, 'bold'), cursor='hand2')
+        self.title_label.pack(side='left')
+
+        self.hint = tk.Label(self.header, text='클릭', bg=self.HEADER_BG,
+                              fg=self.ACCENT_DIM, font=(FONT, 8), cursor='hand2')
+        self.hint.place(relx=1.0, rely=0.5, anchor='e', x=-12)
+
+        for w in (self.header, inner, self.chevron, self.title_label, self.hint):
+            w.bind('<Button-1>', lambda e: self.toggle())
+            w.bind('<Enter>', self._on_enter)
+            w.bind('<Leave>', self._on_leave)
+
+        self.body = tk.Frame(self, bg=self.BODY_BG)
+        self._line_widgets: list[tk.Frame] = []
+        for marker, text in lines:
+            row = tk.Frame(self.body, bg=self.BODY_BG)
+            mark_color = ACCENT if marker.isdigit() else self.ACCENT_DIM
+            tk.Label(row, text=marker, bg=self.BODY_BG, fg=mark_color,
+                     font=(FONT, 9, 'bold'), width=2, anchor='center').pack(side='left', padx=(12, 6))
+            tk.Label(row, text=text, bg=self.BODY_BG, fg=FG,
+                     font=(FONT, 9), anchor='w', justify='left',
+                     wraplength=320).pack(side='left', fill='x', expand=True, pady=1)
+            self._line_widgets.append(row)
+
+    def _on_enter(self, _):
+        for w in (self.header, self.chevron, self.title_label, self.hint):
+            w.configure(bg=self.HEADER_HOVER)
+
+    def _on_leave(self, _):
+        for w in (self.header, self.chevron, self.title_label, self.hint):
+            w.configure(bg=self.HEADER_BG)
+
+    def toggle(self):
+        if self.expanded:
+            self._collapse()
+        else:
+            self._expand()
+
+    def _expand(self):
+        self.expanded = True
+        self.hint.configure(text='닫기')
+        self.body.pack(fill='x', pady=(0, 0))
+        for w in self._line_widgets:
+            w.pack_forget()
+        self._reveal_idx = 0
+        self._spin_chevron(0, opening=True)
+        self._reveal_next()
+
+    def _collapse(self):
+        self.expanded = False
+        self.hint.configure(text='클릭')
+        if self._anim_after:
+            try:
+                self.after_cancel(self._anim_after)
+            except Exception:
+                pass
+            self._anim_after = None
+        self.body.pack_forget()
+        self._spin_chevron(0, opening=False)
+
+    def _reveal_next(self):
+        if self._reveal_idx >= len(self._line_widgets):
+            self._anim_after = None
+            return
+        self._line_widgets[self._reveal_idx].pack(fill='x', pady=1)
+        self._reveal_idx += 1
+        self._anim_after = self.after(35, self._reveal_next)
+
+    def _spin_chevron(self, step: int, opening: bool):
+        frames_open  = ['▸', '▹', '▾', '▼']
+        frames_close = ['▼', '▿', '▹', '▸']
+        frames = frames_open if opening else frames_close
+        if step >= len(frames):
+            return
+        self.chevron.configure(text=frames[step])
+        self.after(40, lambda: self._spin_chevron(step + 1, opening))
+
+
 class App(tk.Tk):
     def __init__(self):
         super().__init__()
-        self.title('콘티 악보 생성')
+        self.title('Setlist')
         self.resizable(False, False)
         self.configure(bg=BG)
 
@@ -157,11 +356,13 @@ class App(tk.Tk):
 
         wed = next_wednesday()
         self.title_var = tk.StringVar(value=f'{wed} 수요성령집회 콘티')
-        self.split_var = tk.IntVar(value=1)
+        self.pattern_var = tk.StringVar(value='2')
         self._last_pptx = None
 
         self._build_ui()
         self._center()
+        self.bind('<Return>', lambda e: self._run())
+        self.bind('<KP_Enter>', lambda e: self._run())
 
     def _label(self, parent, text):
         return tk.Label(parent, text=text, bg=CARD_BG, fg=FG_DIM, font=(FONT, 9))
@@ -190,28 +391,42 @@ class App(tk.Tk):
         card = tk.Frame(self, bg=CARD_BG, padx=28, pady=24)
         card.pack(padx=16, pady=16)
 
-        tk.Label(card, text='콘티 악보 생성', bg=CARD_BG, fg=FG,
-                 font=(FONT, 14, 'bold')).grid(row=0, column=0, columnspan=2, sticky='w')
-        tk.Label(card, text='이미지 → PPT', bg=CARD_BG, fg=FG_DIM,
-                 font=(FONT, 9)).grid(row=1, column=0, columnspan=2, sticky='w', pady=(2, 8))
+        tk.Label(card, text='Setlist', bg=CARD_BG, fg=FG,
+                 font=(FONT, 16, 'bold')).grid(row=0, column=0, columnspan=2, sticky='w', pady=(0, 12))
 
-        self._folder_row(card, '이미지 폴더 (views)', self.views_var, 2)
-        self._folder_row(card, 'PPT 저장 폴더', self.pptx_var, 4)
+        help_panel = CollapsiblePanel(
+            card,
+            title='사용법',
+            lines=[
+                ('1', '이미지 폴더에 1.jpg, 2.jpg 순서로 악보 이미지 저장'),
+                ('2', '이미지 폴더 지정'),
+                ('3', '제목을 "YYYYMMDD 라벨" 형식으로 (예: 20260520 수요성령집회)'),
+                ('4', '페이지 구성 입력 — 아래 예시 참고'),
+                ('•', '2  →  2장씩 모두 채움'),
+                ('•', '2,2,3  →  3슬라이드 (2장, 2장, 3장)'),
+                ('•', '2x3  →  2장씩 3슬라이드'),
+                ('5', '실행 클릭'),
+            ],
+        )
+        help_panel.grid(row=2, column=0, columnspan=2, sticky='ew', pady=(0, 4))
 
-        self._label(card, '제목').grid(row=6, column=0, columnspan=2, sticky='w', pady=(12, 2))
-        self._entry(card, self.title_var).grid(row=7, column=0, columnspan=2, sticky='ew')
+        self._folder_row(card, '이미지 폴더 (views)', self.views_var, 3)
+        self._folder_row(card, 'PPT 저장 폴더', self.pptx_var, 5)
 
-        self._label(card, '슬라이드 한 장에 넣을 이미지 수').grid(row=8, column=0, columnspan=2, sticky='w', pady=(12, 2))
-        self._entry(card, self.split_var, width=8).grid(row=9, column=0, sticky='w')
+        self._label(card, '제목').grid(row=7, column=0, columnspan=2, sticky='w', pady=(12, 2))
+        self._entry(card, self.title_var).grid(row=8, column=0, columnspan=2, sticky='ew')
 
-        self._btn(card, '실행', self._run).grid(row=10, column=0, columnspan=2, sticky='ew', pady=(20, 0))
+        self._label(card, '페이지 구성  (예: 2 / 2,2,3 / 2x3)').grid(row=9, column=0, columnspan=2, sticky='w', pady=(12, 2))
+        self._entry(card, self.pattern_var, width=16).grid(row=10, column=0, sticky='w')
+
+        self._btn(card, '실행', self._run).grid(row=11, column=0, columnspan=2, sticky='ew', pady=(20, 0))
 
         self.status = tk.Label(card, text='', bg=CARD_BG, fg=FG_DIM,
                                font=(FONT, 9), wraplength=360, justify='left')
-        self.status.grid(row=11, column=0, columnspan=2, sticky='w', pady=(10, 0))
+        self.status.grid(row=12, column=0, columnspan=2, sticky='w', pady=(10, 0))
 
         btn_frame = tk.Frame(card, bg=CARD_BG)
-        btn_frame.grid(row=12, column=0, columnspan=2, sticky='ew', pady=(8, 0))
+        btn_frame.grid(row=13, column=0, columnspan=2, sticky='ew', pady=(8, 0))
         btn_frame.columnconfigure(0, weight=1)
         btn_frame.columnconfigure(1, weight=1)
 
@@ -243,13 +458,16 @@ class App(tk.Tk):
         views = self.views_var.get().strip()
         pptx  = self.pptx_var.get().strip()
         title = self.title_var.get().strip()
-        split = self.split_var.get()
+        pattern = self.pattern_var.get().strip()
 
         if not views or not pptx:
             messagebox.showwarning('경고', '폴더를 선택해주세요.')
             return
         if not title:
             messagebox.showwarning('경고', '제목을 입력해주세요.')
+            return
+        if not pattern:
+            messagebox.showwarning('경고', '페이지 구성을 입력해주세요.')
             return
 
         save_config(views, pptx)
@@ -259,7 +477,7 @@ class App(tk.Tk):
         self.update()
 
         try:
-            msg, pptx_path = run_update(views, pptx, title, split)
+            msg, pptx_path = run_update(views, pptx, title, pattern)
             self._last_pptx = pptx_path
             self.status.config(text=f'완료! {msg}', fg='#80e0a0')
             self.open_folder_btn.grid()
